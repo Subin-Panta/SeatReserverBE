@@ -20,5 +20,7 @@ router.post(
 	],
 	orderController.verifyOrder
 )
-
+router.get('/findOrder/:orderId', orderController.findOrder)
+router.get('/downloadOrder/:orderId', orderController.getPdf)
+router.post('/cancelOrder/:orderId')
 module.exports = router

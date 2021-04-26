@@ -1,5 +1,6 @@
 const express = require('express')
 const mongoose = require('mongoose')
+const helmet = require('helmet')
 const app = express()
 require('dotenv').config()
 const port = process.env.PORT
@@ -9,6 +10,7 @@ const vanRoutes = require('./routes/van')
 const orderRoutes = require('./routes/order')
 
 //middleware
+app.use(helmet())
 app.use(express.json()) //json bodyParser
 app.use(
 	express.urlencoded({

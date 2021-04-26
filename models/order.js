@@ -22,6 +22,14 @@ const orderSchema = new Schema(
 		vanNumber: {
 			type: String,
 			required: true
+		},
+		price: {
+			type: Number,
+			required: true
+		},
+		pricePerSeat: {
+			type: Number,
+			required: true
 		}
 	},
 	{ timeStamps: true }

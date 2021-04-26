@@ -1,6 +1,10 @@
 const { validationResult } = require('express-validator')
 const Van = require('../models/van')
 const Order = require('../models/order')
+const PDFDocument = require('pdfkit')
+const fs = require('fs')
+const path = require('path')
+const mongoose = require('mongoose')
 exports.verifyOrder = async (req, res, next) => {
 	const errors = validationResult(req)
 	if (!errors.isEmpty()) {
@@ -70,7 +74,9 @@ exports.verifyOrder = async (req, res, next) => {
 			lastName,
 			phoneNumber,
 			email,
-			vanNumber
+			vanNumber,
+			price: totalPrice,
+			pricePerSeat: van.price
 		})
 		const result = await order.save()
 		//after creating order save the seats
@@ -86,7 +92,42 @@ exports.verifyOrder = async (req, res, next) => {
 			}
 			return next(error)
 		}
-		res.status(200).json({ result, price: totalPrice })
+		//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+		// Create a pdf documnet
+		//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+		console.log(result)
+		const pdfDoc = new PDFDocument()
+		//pipe it to a file
+		const invoiceName = 'Invoice-' + result._id + '.pdf'
+		const invoicePath = path.join('data', 'invoices', invoiceName)
+		pdfDoc.pipe(fs.createWriteStream(invoicePath))
+		//create it
+		pdfDoc.fontSize(26).text('Invoice')
+		pdfDoc.text('---------------------------------------')
+		pdfDoc.fontSize(10)
+		pdfDoc.text(`Order Number: ${result._id}`)
+		pdfDoc.text('---------------------------------------')
+		pdfDoc.fontSize(20).text('Details')
+		pdfDoc.fontSize(10)
+		pdfDoc.text(`Name: ${result.firstName} ${result.lastName}`)
+		pdfDoc.text(`Contact: ${result.phoneNumber}`)
+		pdfDoc.text(`Email: ${result.email}`)
+		pdfDoc.text(`Van Number: ${result.vanNumber} `)
+		pdfDoc.text(`Seats: ${result.seats.toString()}`)
+		pdfDoc.text(`Number of Seats: ${result.seats.length} `)
+		pdfDoc.text(`Price/Seat: ${result.pricePerSeat} `)
+		pdfDoc.text('---------------------------------------')
+		pdfDoc.text(`Total: ${result.price}`)
+		pdfDoc
+			.fontSize(8)
+			.text(
+				'To cancel your order please go to the orders tab on our homepage',
+				{
+					underline: true
+				}
+			)
+		pdfDoc.end()
+		res.status(200).json({ result })
 	} catch (error) {
 		//build a new Error and next it
 		if (!error.statusCode) {
@@ -97,3 +138,78 @@ exports.verifyOrder = async (req, res, next) => {
 }
 
 //link to get the
+exports.getPdf = async (req, res, next) => {
+	//get the pdf
+	//create a readble stream
+	const orderId = req.params.orderId
+	if (!orderId) {
+		const error = new Error('The orderId is required')
+		error.statusCode = 422
+		return next(error)
+	}
+	//check if the supplied orderId is valid moongooseId
+	var cond = mongoose.Types.ObjectId.isValid(orderId)
+	if (!cond) {
+		const err = new Error('The Id is not of correct format')
+		err.statusCode = 422
+		return next(err)
+	}
+	//convert orderId into mongoose objectId
+	const mongooseId = mongoose.Types.ObjectId(orderId)
+	//check if the order is in the database
+	try {
+		const result = await Order.findById(mongooseId)
+		if (!result) {
+			throw new Error('No Such Error')
+		}
+		const invoicePath = path.join(
+			__dirname,
+			`../data/invoices/Invoice-${orderId}.pdf`
+		)
+		//create a read stream
+		fs.createReadStream(invoicePath)
+		//pipe it to res
+		fs.pipe(res)
+		file.on('error', error => {
+			return next(error)
+		})
+	} catch (error) {
+		if (!error.statusCode) {
+			error.statusCode = 500
+		}
+		next(error)
+	}
+}
+
+exports.findOrder = async (req, res, next) => {
+	//get the order
+	const orderId = req.params.orderId
+	if (!orderId) {
+		const error = new Error('The orderId is required')
+		error.statusCode = 422
+		return next(error)
+	}
+	//find the order in mongoose
+	//check if the supplied orderId is valid moongooseId
+	var cond = mongoose.Types.ObjectId.isValid(orderId)
+	if (!cond) {
+		const err = new Error('The Id is not of correct format')
+		err.statusCode = 422
+		return next(err)
+	}
+	//first convert string into mongoose ObjectId
+	const convertedId = mongoose.Types.ObjectId(orderId)
+
+	try {
+		const result = await Order.findById(convertedId)
+		if (!result) {
+			throw new Error('No Such Order')
+		}
+		res.status(200).json({ result })
+	} catch (error) {
+		if (!error.statusCode) {
+			error.statusCode = 500
+		}
+		next(error)
+	}
+}
