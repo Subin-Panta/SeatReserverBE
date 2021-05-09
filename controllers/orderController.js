@@ -167,9 +167,9 @@ exports.getPdf = async (req, res, next) => {
 			`../data/invoices/Invoice-${orderId}.pdf`
 		)
 		//create a read stream
-		fs.createReadStream(invoicePath)
+		const file = fs.createReadStream(invoicePath)
 		//pipe it to res
-		fs.pipe(res)
+		file.pipe(res)
 		file.on('error', error => {
 			return next(error)
 		})
